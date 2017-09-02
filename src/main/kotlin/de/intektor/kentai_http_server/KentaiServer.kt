@@ -1,5 +1,7 @@
 package de.intektor.kentai_http_server
 
+import de.intektor.kentai_http_server.server.Commander
+import okhttp3.OkHttpClient
 import org.eclipse.jetty.server.Server
 import java.io.FileInputStream
 import java.util.*
@@ -12,6 +14,8 @@ import java.util.logging.*
 object KentaiServer {
 
     lateinit var logger: Logger
+
+    val httpClient = OkHttpClient()
 
     fun startServer() {
         logger = Logger.getLogger("KentaiServer")
@@ -31,6 +35,8 @@ object KentaiServer {
         DatabaseConnection.buildConnection(username, password)
 
         scanner.close()
+
+        Commander.start()
 
         val server = Server(17349)
         server.handler = MainHandler

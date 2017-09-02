@@ -15,7 +15,7 @@ object MainHandler : AbstractHandler() {
     private val registry: HashMap<String, AbstractHandler> = hashMapOf()
 
     override fun handle(target: String, baseRequest: Request, request: HttpServletRequest, response: HttpServletResponse) {
-        var handler = registry[target]
+        var handler = registry[target.substring(1)]
         if (handler == null) {
             handler = EmptyHandler()
         }
@@ -38,5 +38,6 @@ object MainHandler : AbstractHandler() {
         register(SendChatMessageRequest.TARGET, SendChatMessageRequestHandler())
         register(UpdateFBCMTokenRequest.TARGET, UpdateFBCMTokenRequestHandler())
         register(FetchMessageRequest.TARGET, FetchMessageRequestHandler())
+        register(KeyRequest.TARGET, KeyRequestHandler())
     }
 }

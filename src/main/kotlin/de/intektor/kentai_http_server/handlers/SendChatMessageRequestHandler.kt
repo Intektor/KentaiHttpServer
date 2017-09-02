@@ -1,7 +1,6 @@
 package de.intektor.kentai_http_server.handlers
 
 import com.google.gson.stream.JsonWriter
-import de.intektor.kentai_http_common.client_to_server.RegisterRequestToServer
 import de.intektor.kentai_http_common.client_to_server.SendChatMessageRequest
 import de.intektor.kentai_http_common.gson.genGson
 import de.intektor.kentai_http_common.server_to_client.SendChatMessageResponse
@@ -9,11 +8,12 @@ import de.intektor.kentai_http_common.util.FCMMessageType
 import de.intektor.kentai_http_common.util.decryptRSA
 import de.intektor.kentai_http_common.util.toKey
 import de.intektor.kentai_http_server.DatabaseConnection
+import de.intektor.kentai_http_server.KentaiServer
+import okhttp3.MediaType
+import okhttp3.RequestBody
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.handler.AbstractHandler
-import java.io.OutputStreamWriter
-import java.net.URL
-import java.net.URLConnection
+import java.io.StringWriter
 import java.util.*
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -36,6 +36,7 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                 connection.prepareStatement("SELECT auth_key, username FROM kentai.login_table WHERE user_uuid = ?").use { statement ->
                     statement.setString(1, message.senderUUID.toString())
                     val query = statement.executeQuery()
+                    query.next()
                     receiverUUID = UUID.fromString(message.receiverUUIDEncrypted.decryptRSA(query.getString("auth_key").toKey()))
                     val senderUsername = query.getString("username")
 
@@ -49,36 +50,29 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                     }
 
                     if (valid) {
-                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent) VALUES(?, ?, ?, ?, ?)").use { statement ->
+                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector) VALUES(?, ?, ?, ?, ?, ?, ?)").use { statement ->
                             statement.setString(1, message.message.id.toString())
                             statement.setString(2, message.message.text)
                             statement.setString(3, "")
                             statement.setString(4, message.messageRegistryId)
                             statement.setLong(5, message.message.timeSent)
+                            statement.setString(6, message.message.aesKey)
+                            statement.setString(7, message.message.initVector)
                             statement.execute()
                         }
 
-                        val httpConnection: URLConnection = URL("fcm.googleapis.com/fcm/send" + RegisterRequestToServer.TARGET).openConnection()
-                        httpConnection.readTimeout = 15000
-                        httpConnection.connectTimeout = 15000
-                        httpConnection.doInput = true
-                        httpConnection.doOutput = true
-                        httpConnection.headerFields.put("Authorization: key", listOf("AAAAFRPXCfU:APA91bFkjRPKGL_fHEqz0LNCI0PunZyf_Cv1YMKkBu6iN6fNUy4zkLG-p5BU81B8kS9PSnKJ0Y5WM-fq5Kj0nblenkm9JiTOE57MlAqWa57Li8eBNSvmoLgT1eskEDcpT0jFhPnnwTI7"))
+                        val stringWriter = StringWriter()
 
                         connection.prepareStatement("SELECT fcm_token FROM kentai.login_table WHERE user_uuid = ?").use { statement ->
                             statement.setString(1, receiverUUID.toString())
                             val query = statement.executeQuery()
                             if (query.next()) {
-                                val writer = JsonWriter(OutputStreamWriter(httpConnection.getOutputStream()))
+                                val fcmToken = query.getString("fcm_token")
+
+                                val writer = JsonWriter(stringWriter)
                                 writer.beginObject()
 
                                 writer.name("priority").value("high")
-
-                                writer.name("notification").beginObject()
-                                writer.name("title").value("Kentai")
-                                writer.name("body").value(message.previewText)
-                                writer.name("icon").value("new")
-                                writer.endObject()
 
                                 writer.name("data").beginObject()
                                 writer.name("type").value(FCMMessageType.CHAT_MESSAGE.ordinal.toString())
@@ -87,15 +81,26 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                                 writer.name("sender_uuid").value(message.senderUUID.toString())
                                 writer.name("sender_username").value(senderUsername)
                                 writer.name("message_registry_id").value(message.messageRegistryId)
+                                writer.name("preview_text").value(message.previewText)
                                 writer.endObject()
 
-                                writer.name("to").value(query.getString("fcm_token"))
+                                writer.name("to").value(fcmToken)
 
                                 writer.endObject()
                                 writer.flush()
                             }
                         }
-
+                        val written = stringWriter.toString()
+                        println(written)
+                        val body = RequestBody.create(MediaType.parse("application/json"), written)
+                        val request = okhttp3.Request.Builder()
+                                .addHeader("Authorization", "key=AAAAFRPXCfU:APA91bFkjRPKGL_fHEqz0LNCI0PunZyf_Cv1YMKkBu6iN6fNUy4zkLG-p5BU81B8kS9PSnKJ0Y5WM-fq5Kj0nblenkm9JiTOE57MlAqWa57Li8eBNSvmoLgT1eskEDcpT0jFhPnnwTI7")
+                                .url("https://fcm.googleapis.com/fcm/send")
+                                .post(body)
+                                .build()
+                        val response = KentaiServer.httpClient.newCall(request).execute()
+                        println(response)
+                        response.close()
                     }
                 }
             }

@@ -24,7 +24,7 @@ class RegisterRequestToServerHandler : AbstractHandler() {
 
         val resGson = genGson()
 
-        if (req.username.length !in 5..20 || req.username.matches(("\\w+".toRegex()))) {
+        if (req.username.length !in 5..20 || !req.username.matches(("\\w+".toRegex()))) {
             reqGson.toJson(RegisterRequestResponseToClient(req.username, null, RegisterRequestResponseToClient.Type.INVALID_USERNAME), response.writer)
         } else {
             DatabaseConnection.ds.connection.use { connection ->
@@ -33,7 +33,7 @@ class RegisterRequestToServerHandler : AbstractHandler() {
                     if (!statement.executeQuery().next()) {
                         val userUUID = UUID.randomUUID()
 
-                        connection.prepareStatement("INSERT INTO kentai.login_table (username, user_uuid, message_public_key, auth_key, fcm_token) VALUES (?, ?, ?, ?, ?)").use { statement2 ->
+                        connection.prepareStatement("INSERT INTO kentai.login_table (username, user_uuid, message_key, auth_key, fcm_token) VALUES (?, ?, ?, ?, ?)").use { statement2 ->
                             statement2.setString(1, req.username)
                             statement2.setString(2, userUUID.toString())
                             statement2.setString(3, BaseEncoding.base64().encode(req.messageKey.encoded))
@@ -42,7 +42,7 @@ class RegisterRequestToServerHandler : AbstractHandler() {
                             statement2.execute()
                         }
 
-                        resGson.toJson(reqGson.toJson(RegisterRequestResponseToClient(req.username, userUUID, RegisterRequestResponseToClient.Type.INVALID_USERNAME), response.writer))
+                        resGson.toJson(reqGson.toJson(RegisterRequestResponseToClient(req.username, userUUID, RegisterRequestResponseToClient.Type.SUCCESS), response.writer))
                     } else {
                         reqGson.toJson(RegisterRequestResponseToClient(req.username, null, RegisterRequestResponseToClient.Type.TAKEN_USERNAME), response.writer)
                     }
