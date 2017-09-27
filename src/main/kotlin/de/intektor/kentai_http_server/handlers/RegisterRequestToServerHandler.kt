@@ -49,5 +49,6 @@ class RegisterRequestToServerHandler : AbstractHandler() {
                 }
             }
         }
+        baseRequest.isHandled = true
     }
 }

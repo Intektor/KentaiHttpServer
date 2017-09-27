@@ -39,5 +39,7 @@ object MainHandler : AbstractHandler() {
         register(UpdateFBCMTokenRequest.TARGET, UpdateFBCMTokenRequestHandler())
         register(FetchMessageRequest.TARGET, FetchMessageRequestHandler())
         register(KeyRequest.TARGET, KeyRequestHandler())
+        register("uploadReference", UploadReferenceHandler())
+        register(DownloadReferenceRequest.TARGET, DownloadReferenceHandler())
     }
 }

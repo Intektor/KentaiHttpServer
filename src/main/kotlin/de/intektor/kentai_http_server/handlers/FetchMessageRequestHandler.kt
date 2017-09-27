@@ -1,5 +1,6 @@
 package de.intektor.kentai_http_server.handlers
 
+import com.google.common.io.BaseEncoding
 import de.intektor.kentai_http_common.client_to_server.FetchMessageRequest
 import de.intektor.kentai_http_common.gson.genGson
 import de.intektor.kentai_http_common.server_to_client.FetchMessageResponse
@@ -21,9 +22,9 @@ class FetchMessageRequestHandler : AbstractHandler() {
         response.contentType = "application/json; charset=utf-8"
         response.status = HttpServletResponse.SC_OK
 
+
         val reqGson = genGson()
         val req = reqGson.fromJson(request.reader, FetchMessageRequest::class.java)
-
         DatabaseConnection.ds.connection.use { connection ->
             connection.prepareStatement("SELECT auth_key FROM kentai.login_table WHERE user_uuid = ?").use { statement1 ->
                 statement1.setString(1, req.userUUID.toString())
@@ -33,18 +34,20 @@ class FetchMessageRequestHandler : AbstractHandler() {
                 query.close()
 
                 val messageUUID = UUID.fromString(req.encryptedMessageUUID.decryptRSA(authKey))
-                connection.prepareStatement("SELECT text, reference, registry_id, time_sent, aes_key, init_vector FROM kentai.pending_messages WHERE message_uuid = ?").use { statement2 ->
+                connection.prepareStatement("SELECT text, reference, registry_id, time_sent, aes_key, init_vector, small_data, signature FROM kentai.pending_messages WHERE message_uuid = ?").use { statement2 ->
                     statement2.setString(1, messageUUID.toString())
                     val query2 = statement2.executeQuery()
                     query2.next()
                     val text = query2.getString("text")
-                    val reference: String? = query2.getString("reference")
+                    val reference: String = query2.getString("reference")
                     val timeSent = query2.getLong("time_sent")
                     val aesKey = query2.getString("aes_key")
                     val initVector = query2.getString("init_vector")
+                    val smallData = query2.getBytes("small_data")
+                    val signature = query2.getString("signature")
                     query2.close()
 
-                    val res = FetchMessageResponse(text, reference, timeSent, aesKey, initVector)
+                    val res = FetchMessageResponse(text, reference, timeSent, aesKey, initVector, if (smallData != null) BaseEncoding.base64().encode(smallData) else "", signature)
                     val resGson = genGson()
                     resGson.toJson(res, response.writer)
                 }

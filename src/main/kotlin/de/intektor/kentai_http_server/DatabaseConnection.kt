@@ -39,7 +39,16 @@ object DatabaseConnection {
                         "aes_key VARCHAR(344), " +
                         "init_vector VARCHAR(344), " +
                         "time_sent BIGINT, " +
+                        "signature VARCHAR(344), " +
+                        "small_data VARBINARY(2048), " +
                         "PRIMARY KEY(message_uuid));").execute()
+
+                connection.prepareStatement("CREATE TABLE IF NOT EXISTS kentai.references (" +
+                        "reference_uuid VARCHAR(40) NOT NULL, " +
+                        "state INT NOT NULL, " +
+                        "times_tried INT NOT NULL, " +
+                        "upload_time BIGINT NOT NULL, " +
+                        "PRIMARY KEY(reference_uuid));").execute()
             })
         } catch (e: SQLException) {
             KentaiServer.logger.log(Level.WARNING, "ERROR!", e)

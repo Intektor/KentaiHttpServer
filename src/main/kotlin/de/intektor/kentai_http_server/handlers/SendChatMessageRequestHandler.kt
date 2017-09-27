@@ -7,6 +7,7 @@ import de.intektor.kentai_http_common.server_to_client.SendChatMessageResponse
 import de.intektor.kentai_http_common.util.FCMMessageType
 import de.intektor.kentai_http_common.util.decryptRSA
 import de.intektor.kentai_http_common.util.toKey
+import de.intektor.kentai_http_common.util.toUUID
 import de.intektor.kentai_http_server.DatabaseConnection
 import de.intektor.kentai_http_server.KentaiServer
 import okhttp3.MediaType
@@ -37,7 +38,7 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                     statement.setString(1, message.senderUUID.toString())
                     val query = statement.executeQuery()
                     query.next()
-                    receiverUUID = UUID.fromString(message.receiverUUIDEncrypted.decryptRSA(query.getString("auth_key").toKey()))
+                    receiverUUID = message.receiverUUIDEncrypted.decryptRSA(query.getString("auth_key").toKey()).toUUID()
                     val senderUsername = query.getString("username")
 
                     //Says if this message was sent before and so we don't want to send it again
@@ -50,14 +51,16 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                     }
 
                     if (valid) {
-                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector) VALUES(?, ?, ?, ?, ?, ?, ?)").use { statement ->
+                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector, signature, small_data) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)").use { statement ->
                             statement.setString(1, message.message.id.toString())
                             statement.setString(2, message.message.text)
-                            statement.setString(3, "")
+                            statement.setString(3, message.message.referenceUUID.toString())
                             statement.setString(4, message.messageRegistryId)
                             statement.setLong(5, message.message.timeSent)
                             statement.setString(6, message.message.aesKey)
                             statement.setString(7, message.message.initVector)
+                            statement.setString(8, message.message.signature)
+                            statement.setBytes(9, if (message.message.isSmallData()) message.message.getAdditionalInfo() else null)
                             statement.execute()
                         }
 
