@@ -27,7 +27,7 @@ class DownloadReferenceHandler : AbstractHandler() {
                     if (query.next()) {
                         val state = UploadReferenceHandler.State.values()[query.getInt("state")]
                         when (state) {
-                            UploadReferenceHandler.State.IN_PROGRESS -> writeResponse(response.outputStream, DownloadReferenceRequest.Response.NOT_FOUND, 0)
+                            UploadReferenceHandler.State.IN_PROGRESS -> writeResponse(response.outputStream, DownloadReferenceRequest.Response.IN_PROGRESS, 0)
                             UploadReferenceHandler.State.DELETED -> writeResponse(response.outputStream, DownloadReferenceRequest.Response.DELETED, 0)
                             UploadReferenceHandler.State.FINISHED -> {
                                 val file = File("references/${req.referenceUUID}")

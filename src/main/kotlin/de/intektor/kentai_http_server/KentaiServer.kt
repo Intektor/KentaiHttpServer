@@ -37,6 +37,7 @@ object KentaiServer {
         scanner.close()
 
         Commander.start()
+        DirectConnector.start()
 
         val server = Server(17349)
         server.handler = MainHandler

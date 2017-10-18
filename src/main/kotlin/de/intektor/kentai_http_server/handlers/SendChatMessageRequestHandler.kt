@@ -39,7 +39,6 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                     val query = statement.executeQuery()
                     query.next()
                     receiverUUID = message.receiverUUIDEncrypted.decryptRSA(query.getString("auth_key").toKey()).toUUID()
-                    val senderUsername = query.getString("username")
 
                     //Says if this message was sent before and so we don't want to send it again
                     var valid = true
@@ -51,7 +50,7 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                     }
 
                     if (valid) {
-                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector, signature, small_data) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)").use { statement ->
+                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector, signature, small_data, sender_uuid, chat_uuid, receiver_uuid) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").use { statement ->
                             statement.setString(1, message.message.id.toString())
                             statement.setString(2, message.message.text)
                             statement.setString(3, message.message.referenceUUID.toString())
@@ -61,6 +60,9 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                             statement.setString(7, message.message.initVector)
                             statement.setString(8, message.message.signature)
                             statement.setBytes(9, if (message.message.isSmallData()) message.message.getAdditionalInfo() else null)
+                            statement.setString(10, message.senderUUID.toString())
+                            statement.setString(11, message.chatUUID.toString())
+                            statement.setString(12, receiverUUID.toString())
                             statement.execute()
                         }
 
@@ -79,12 +81,6 @@ class SendChatMessageRequestHandler : AbstractHandler() {
 
                                 writer.name("data").beginObject()
                                 writer.name("type").value(FCMMessageType.CHAT_MESSAGE.ordinal.toString())
-                                writer.name("chat_uuid").value(message.chatUUID.toString())
-                                writer.name("message_uuid").value(message.message.id.toString())
-                                writer.name("sender_uuid").value(message.senderUUID.toString())
-                                writer.name("sender_username").value(senderUsername)
-                                writer.name("message_registry_id").value(message.messageRegistryId)
-                                writer.name("preview_text").value(message.previewText)
                                 writer.endObject()
 
                                 writer.name("to").value(fcmToken)
@@ -94,7 +90,6 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                             }
                         }
                         val written = stringWriter.toString()
-                        println(written)
                         val body = RequestBody.create(MediaType.parse("application/json"), written)
                         val request = okhttp3.Request.Builder()
                                 .addHeader("Authorization", "key=AAAAFRPXCfU:APA91bFkjRPKGL_fHEqz0LNCI0PunZyf_Cv1YMKkBu6iN6fNUy4zkLG-p5BU81B8kS9PSnKJ0Y5WM-fq5Kj0nblenkm9JiTOE57MlAqWa57Li8eBNSvmoLgT1eskEDcpT0jFhPnnwTI7")
@@ -102,7 +97,6 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                                 .post(body)
                                 .build()
                         val response = KentaiServer.httpClient.newCall(request).execute()
-                        println(response)
                         response.close()
                     }
                 }

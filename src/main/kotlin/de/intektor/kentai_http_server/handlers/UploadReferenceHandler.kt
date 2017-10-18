@@ -1,12 +1,10 @@
 package de.intektor.kentai_http_server.handlers
 
+import de.intektor.kentai_http_common.reference.UploadResponse
 import de.intektor.kentai_http_server.DatabaseConnection
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.handler.AbstractHandler
-import java.io.DataInputStream
-import java.io.File
-import java.io.FileOutputStream
-import java.io.InputStream
+import java.io.*
 import java.sql.Connection
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
@@ -26,12 +24,18 @@ class UploadReferenceHandler : AbstractHandler() {
                     if (query.next()) {
                         val state = State.values()[query.getInt(1)]
                         if (state == State.DELETED || state == State.FINISHED) {
+                            DataOutputStream(response.outputStream).use { dataOut ->
+                                dataOut.writeInt(UploadResponse.ALREADY_UPLOADED.ordinal)
+                            }
                             baseRequest.isHandled = true
                             return
                         }
 
                         val timesTried = query.getInt(2)
                         receiveData(request.inputStream, timesTried, connection, referenceUUID)
+                        DataOutputStream(response.outputStream).use { dataOut ->
+                            dataOut.writeInt(UploadResponse.NOW_UPLOADED.ordinal)
+                        }
                         baseRequest.isHandled = true
                     } else {
                         connection.prepareStatement("INSERT INTO kentai.references (reference_uuid, state, times_tried, upload_time) VALUES(?, ?, 1, ?)").use { statement2 ->
@@ -41,6 +45,9 @@ class UploadReferenceHandler : AbstractHandler() {
                             statement2.execute()
                         }
                         receiveData(request.inputStream, 1, connection, referenceUUID)
+                        DataOutputStream(response.outputStream).use { dataOut ->
+                            dataOut.writeInt(UploadResponse.NOW_UPLOADED.ordinal)
+                        }
                         baseRequest.isHandled = true
                     }
                 }

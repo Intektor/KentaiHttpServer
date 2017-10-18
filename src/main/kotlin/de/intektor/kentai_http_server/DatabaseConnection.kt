@@ -41,6 +41,9 @@ object DatabaseConnection {
                         "time_sent BIGINT, " +
                         "signature VARCHAR(344), " +
                         "small_data VARBINARY(2048), " +
+                        "chat_uuid VARCHAR(40) NOT NULL, " +
+                        "sender_uuid VARCHAR(40) NOT NULL, " +
+                        "receiver_uuid VARCHAR(40) NOT NULL, " +
                         "PRIMARY KEY(message_uuid));").execute()
 
                 connection.prepareStatement("CREATE TABLE IF NOT EXISTS kentai.references (" +
@@ -49,6 +52,19 @@ object DatabaseConnection {
                         "times_tried INT NOT NULL, " +
                         "upload_time BIGINT NOT NULL, " +
                         "PRIMARY KEY(reference_uuid));").execute()
+
+                connection.prepareStatement("CREATE TABLE IF NOT EXISTS kentai.fetch_history (" +
+                        "id INT AUTO_INCREMENT, " +
+                        "user_uuid VARCHAR(40) NOT NULL, " +
+                        "last_message_time VARCHAR(40) NOT NULL, " +
+                        "time BIGINT, " +
+                        "PRIMARY KEY (id));").execute()
+
+                connection.prepareStatement("CREATE TABLE IF NOT EXISTS kentai.user_status_table (" +
+                        "user_uuid VARCHAR(40) NOT NULL, " +
+                        "last_time_online BIGINT, " +
+                        "type_closed INT, " +
+                        "PRIMARY KEY(user_uuid));").execute()
             })
         } catch (e: SQLException) {
             KentaiServer.logger.log(Level.WARNING, "ERROR!", e)

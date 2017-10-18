@@ -36,7 +36,7 @@ dependencies {
 
 task fatJar(type: Jar) {
     manifest {
-        attributes["Main-Class"] = 'de.intektor.kentai_server.Start'
+        attributes["Main-Class"] = 'de.intektor.kentai_http_server.MainKt'
     }
     baseName = project.name + '-all'
     from { configurations.compile.collect { it.isDirectory() ? it : zipTree(it) } }
