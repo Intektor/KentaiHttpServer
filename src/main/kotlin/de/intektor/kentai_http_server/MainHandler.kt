@@ -41,5 +41,6 @@ object MainHandler : AbstractHandler() {
         register(KeyRequest.TARGET, KeyRequestHandler())
         register("uploadReference", UploadReferenceHandler())
         register(DownloadReferenceRequest.TARGET, DownloadReferenceHandler())
+        register(CurrentVersionRequest.TARGET, CurrentVersionRequestHandler())
     }
 }

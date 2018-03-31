@@ -37,6 +37,7 @@ object DirectConnector {
             registerHandler(UserPreferencePacketToServer::class.java, UserPreferencePacketToServerHandler())
             registerHandler(AddUserPreferencePacketToServer::class.java, AddUserPreferencePacketToServerHandler())
             registerHandler(HeartbeatPacketToServer::class.java, HeartbeatPacketToServerHandler())
+            registerHandler(TypingPacketToServer::class.java, TypingPacketToServerHandler())
         }
 
         thread {
@@ -122,7 +123,6 @@ object DirectConnector {
                 while (keepConnection) {
                     Thread.sleep(10000L)
                     if (System.currentTimeMillis() - 10000L > lastTimeHeartbeat && keepConnection) {
-                        println("Unregistering user for heartbeat violation: ${System.currentTimeMillis() - lastTimeHeartbeat}")
                         clientSocket.close()
                         val uuid = socketMap[clientSocket]!!
                         unregisterClient(uuid, false)
@@ -136,7 +136,6 @@ object DirectConnector {
                     handlePacket(packet, clientSocket)
                 }
             } catch (t: Throwable) {
-                t.printStackTrace()
                 val uuid = socketMap[clientSocket]!!
 
                 for (socket in interestedMap[uuid]!!) {

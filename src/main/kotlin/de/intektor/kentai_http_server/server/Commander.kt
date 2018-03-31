@@ -2,8 +2,10 @@ package de.intektor.kentai_http_server.server
 
 import com.google.common.base.Splitter
 import de.intektor.kentai_http_server.KentaiServer
+import de.intektor.kentai_http_server.server.commands.CommandReloadVersionManager
 import de.intektor.kentai_http_server.server.commands.CommandSendNotification
 import de.intektor.kentai_http_server.server.commands.CommandShutdownServer
+import de.intektor.kentai_http_server.server.commands.ListUsersCommand
 import java.util.*
 import kotlin.collections.HashMap
 
@@ -17,6 +19,8 @@ object Commander : Thread() {
     init {
         registerCommand(CommandShutdownServer())
         registerCommand(CommandSendNotification())
+        registerCommand(CommandReloadVersionManager())
+        registerCommand(ListUsersCommand())
     }
 
     override fun run() {
