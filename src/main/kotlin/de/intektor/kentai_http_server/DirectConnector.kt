@@ -5,6 +5,7 @@ import de.intektor.kentai_http_common.tcp.client_to_server.*
 import de.intektor.kentai_http_common.tcp.server_to_client.Status
 import de.intektor.kentai_http_common.tcp.server_to_client.UserChange
 import de.intektor.kentai_http_common.tcp.server_to_client.UserStatusChangePacketToClient
+import de.intektor.kentai_http_common.tcp.server_to_client.UserViewChatPacketToClient
 import de.intektor.kentai_http_server.tcp.handlers.*
 import java.io.DataInputStream
 import java.io.DataOutputStream
@@ -30,6 +31,9 @@ object DirectConnector {
 
     val threadMap: ConcurrentHashMap<Socket, ConnectionThread> = ConcurrentHashMap()
 
+    private val userToChatMap: ConcurrentHashMap<UUID, UUID> = ConcurrentHashMap()
+    private val chatToUserMap: ConcurrentHashMap<UUID, MutableSet<UUID>> = ConcurrentHashMap()
+
     fun start() {
         KentaiTCPOperator.packetRegistry.apply {
             registerHandler(IdentificationPacketToServer::class.java, IdentificationPacketToServerHandler())
@@ -38,6 +42,7 @@ object DirectConnector {
             registerHandler(AddUserPreferencePacketToServer::class.java, AddUserPreferencePacketToServerHandler())
             registerHandler(HeartbeatPacketToServer::class.java, HeartbeatPacketToServerHandler())
             registerHandler(TypingPacketToServer::class.java, TypingPacketToServerHandler())
+            registerHandler(ViewChatPacketToServer::class.java, ViewChatPacketToServerHandler())
         }
 
         thread {
@@ -76,12 +81,19 @@ object DirectConnector {
 
     fun unregisterClient(userUUID: UUID, properlyClosed: Boolean) {
         val socket = clientMap[userUUID]
-        val thread = threadMap[socket]
+        val thread = if (socket != null) threadMap[socket] else null
         clientMap.remove(userUUID)
-        socketMap.remove(socket)
-        threadMap.remove(socket)
 
-        thread!!.keepConnection = false
+        if (socket != null) {
+            socketMap.remove(socket)
+            threadMap.remove(socket)
+
+            for (uuid in preferenceMap[socket] ?: emptyList<UUID>()) {
+                interestedMap[uuid]?.remove(socket)
+            }
+        }
+
+        thread?.keepConnection = false
 
         DatabaseConnection.ds.connection.use { connection ->
             connection.prepareStatement("DELETE FROM kentai.user_status_table WHERE user_uuid = ?").use { statement ->
@@ -105,8 +117,9 @@ object DirectConnector {
             }
         }
 
-        for (uuid in preferenceMap[socket]!!) {
-            interestedMap[uuid]!!.remove(socket)
+        val chatUUID = userToChatMap[userUUID]
+        if (chatUUID != null) {
+            userViewChat(userUUID, chatUUID, false)
         }
     }
 
@@ -147,6 +160,38 @@ object DirectConnector {
                 }
 
                 unregisterClient(socketMap[clientSocket]!!, false)
+            }
+        }
+    }
+
+    @Synchronized
+    fun userViewChat(userUUID: UUID, chatUUID: UUID, view: Boolean) {
+        if (!chatToUserMap.containsKey(chatUUID)) chatToUserMap[chatUUID] = hashSetOf()
+
+        val users = chatToUserMap[chatUUID]!!
+
+        val viewPacket = UserViewChatPacketToClient(userUUID, chatUUID, view)
+        for (user in users) {
+            val socket = clientMap[user] ?: continue
+            try {
+                sendPacket(viewPacket, DataOutputStream(socket.getOutputStream()))
+            } catch (t: Throwable) {
+                unregisterClient(user, false)
+            }
+        }
+
+        userToChatMap[userUUID] = chatUUID
+        if (view) {
+            val dataOut = DataOutputStream(clientMap[userUUID]!!.getOutputStream())
+            for (user in users) {
+                sendPacket(UserViewChatPacketToClient(user, chatUUID, true), dataOut)
+            }
+
+            users += userUUID
+        } else {
+            users -= userUUID
+            if (users.isEmpty()) {
+                chatToUserMap.remove(chatUUID)
             }
         }
     }

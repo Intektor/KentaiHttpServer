@@ -58,6 +58,8 @@ object KentaiServer {
 
         val splitter = Splitter.on('&')
 
+        if (!File("changes/").exists()) return
+
         for (changeFile in File("changes/").listFiles()) {
             val scanner = Scanner(changeFile)
             val versionCode = scanner.nextLong()
