@@ -28,7 +28,7 @@ object MainHandler : AbstractHandler() {
     }
 
     private fun register(request: String, handler: AbstractHandler) {
-        registry.put(request, handler)
+        registry[request] = handler
     }
 
     init {
@@ -42,5 +42,6 @@ object MainHandler : AbstractHandler() {
         register("uploadReference", UploadReferenceHandler())
         register(DownloadReferenceRequest.TARGET, DownloadReferenceHandler())
         register(CurrentVersionRequest.TARGET, CurrentVersionRequestHandler())
+        register("uploadProfilePicture", UploadProfilePictureHandler())
     }
 }

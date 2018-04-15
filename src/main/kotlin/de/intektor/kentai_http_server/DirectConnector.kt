@@ -59,16 +59,17 @@ object DirectConnector {
                 val thread = ConnectionThread(clientSocket, dataIn)
                 thread.start()
 
-                threadMap.put(clientSocket, thread)
+                threadMap[clientSocket] = thread
             }
         }
     }
 
+    @Synchronized
     fun registerClient(userUUID: UUID, socket: Socket) {
-        clientMap.put(userUUID, socket)
-        socketMap.put(socket, userUUID)
+        clientMap[userUUID] = socket
+        socketMap[socket] = userUUID
 
-        if (!interestedMap.containsKey(userUUID)) interestedMap.put(userUUID, mutableListOf())
+        if (!interestedMap.containsKey(userUUID)) interestedMap[userUUID] = mutableListOf()
 
         for (clientSocket in interestedMap[userUUID]!!) {
             try {
@@ -79,6 +80,7 @@ object DirectConnector {
         }
     }
 
+    @Synchronized
     fun unregisterClient(userUUID: UUID, properlyClosed: Boolean) {
         val socket = clientMap[userUUID]
         val thread = if (socket != null) threadMap[socket] else null
@@ -123,7 +125,7 @@ object DirectConnector {
         }
     }
 
-    class ConnectionThread(val clientSocket: Socket, val dataIn: DataInputStream) : Thread() {
+    class ConnectionThread(private val clientSocket: Socket, private val dataIn: DataInputStream) : Thread() {
 
         @Volatile
         var lastTimeHeartbeat: Long = System.currentTimeMillis()
