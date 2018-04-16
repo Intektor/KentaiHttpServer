@@ -9,6 +9,7 @@ import java.util.logging.Level
  * @author Intektor
  */
 object DatabaseConnection {
+
     @Volatile lateinit var ds: HikariDataSource
 
     fun buildConnection(username: String, password: String) {

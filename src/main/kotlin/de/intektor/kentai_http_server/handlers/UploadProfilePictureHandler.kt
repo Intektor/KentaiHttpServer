@@ -41,11 +41,11 @@ class UploadProfilePictureHandler : AbstractHandler() {
 
             val signedAmount = dataIn.readInt()
             val signed = ByteArray(signedAmount)
-            dataIn.read(signed)
+            dataIn.readFully(signed)
 
             val pictureAmount = dataIn.readInt()
             val picture = ByteArray(pictureAmount)
-            dataIn.read(picture)
+            dataIn.readFully(picture)
 
             val signer = Signature.getInstance("SHA1WithRSA")
             signer.initVerify(authKey)
