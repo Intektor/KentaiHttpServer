@@ -3,6 +3,7 @@ package de.intektor.kentai_http_server.tcp.handlers
 import de.intektor.kentai_http_common.tcp.IPacketHandler
 import de.intektor.kentai_http_common.tcp.client_to_server.UserPreferencePacketToServer
 import de.intektor.kentai_http_common.tcp.sendPacket
+import de.intektor.kentai_http_common.tcp.server_to_client.ProfilePictureUpdatedPacketToClient
 import de.intektor.kentai_http_common.tcp.server_to_client.Status
 import de.intektor.kentai_http_common.tcp.server_to_client.UserChange
 import de.intektor.kentai_http_common.tcp.server_to_client.UserStatusChangePacketToClient
@@ -10,6 +11,7 @@ import de.intektor.kentai_http_common.util.toUUID
 import de.intektor.kentai_http_server.DatabaseConnection
 import de.intektor.kentai_http_server.DirectConnector
 import de.intektor.kentai_http_server.LastOnlineType
+import de.intektor.kentai_http_server.hasProfilePictureBeenUpdated
 import java.io.DataOutputStream
 import java.net.Socket
 import java.util.*
@@ -20,17 +22,19 @@ import java.util.*
 class UserPreferencePacketToServerHandler : IPacketHandler<UserPreferencePacketToServer> {
 
     override fun handlePacket(packet: UserPreferencePacketToServer, socketFrom: Socket) {
-        for (uuid in packet.list) {
+        for (user in packet.list) {
+            val uuid = user.userUUID
             if (!DirectConnector.interestedMap.containsKey(uuid)) {
-                DirectConnector.interestedMap.put(uuid, mutableListOf())
+                DirectConnector.interestedMap[uuid] = mutableListOf()
             }
-            DirectConnector.interestedMap[uuid]!!.add(socketFrom)
+            DirectConnector.interestedMap[uuid]!! += socketFrom
         }
-        DirectConnector.preferenceMap.put(socketFrom, packet.list)
+        DirectConnector.preferenceMap[socketFrom] = packet.list.map { it.userUUID }.toMutableList()
 
         val responseList = mutableListOf<UserChange>()
         val todoList = mutableListOf<UUID>()
-        for (uuid in packet.list) {
+        for (user in packet.list) {
+            val uuid = user.userUUID
             if (DirectConnector.clientMap.containsKey(uuid)) {
                 responseList.add(UserChange(uuid, Status.ONLINE, System.currentTimeMillis()))
             } else {
@@ -66,6 +70,13 @@ class UserPreferencePacketToServerHandler : IPacketHandler<UserPreferencePacketT
             }
         }
 
-        sendPacket(UserStatusChangePacketToClient(responseList), DataOutputStream(socketFrom.getOutputStream()))
+        val dataOut = DataOutputStream(socketFrom.getOutputStream())
+        sendPacket(UserStatusChangePacketToClient(responseList), dataOut)
+
+        for (interestedUser in packet.list) {
+            if (hasProfilePictureBeenUpdated(interestedUser.userUUID, interestedUser.lastTimeProfilePictureUpdate)) {
+                sendPacket(ProfilePictureUpdatedPacketToClient(interestedUser.userUUID), dataOut)
+            }
+        }
     }
 }

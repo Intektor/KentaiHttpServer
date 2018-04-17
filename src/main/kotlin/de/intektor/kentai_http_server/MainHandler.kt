@@ -43,5 +43,6 @@ object MainHandler : AbstractHandler() {
         register(DownloadReferenceRequest.TARGET, DownloadReferenceHandler())
         register(CurrentVersionRequest.TARGET, CurrentVersionRequestHandler())
         register("uploadProfilePicture", UploadProfilePictureHandler())
+        register(DownloadProfilePictureRequest.TARGET, DownloadProfilePictureRequestHandler())
     }
 }

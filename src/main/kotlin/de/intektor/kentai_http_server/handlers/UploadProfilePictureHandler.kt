@@ -2,13 +2,18 @@ package de.intektor.kentai_http_server.handlers
 
 import de.intektor.kentai_http_common.gson.genGson
 import de.intektor.kentai_http_common.server_to_client.UploadProfilePictureResponse
+import de.intektor.kentai_http_common.tcp.sendPacket
+import de.intektor.kentai_http_common.tcp.server_to_client.ProfilePictureUpdatedPacketToClient
 import de.intektor.kentai_http_common.util.readUUID
 import de.intektor.kentai_http_common.util.toKey
 import de.intektor.kentai_http_server.DatabaseConnection
+import de.intektor.kentai_http_server.DirectConnector
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.handler.AbstractHandler
 import java.io.DataInputStream
+import java.io.DataOutputStream
 import java.io.File
+import java.net.Socket
 import java.security.PublicKey
 import java.security.Signature
 import javax.servlet.http.HttpServletRequest
@@ -63,6 +68,10 @@ class UploadProfilePictureHandler : AbstractHandler() {
 
             val r = UploadProfilePictureResponse(UploadProfilePictureResponse.Type.SUCCESS)
             gson.toJson(r, response.writer)
+
+            for (socket in DirectConnector.interestedMap[userUUID] ?: emptyList<Socket>()) {
+                sendPacket(ProfilePictureUpdatedPacketToClient(userUUID), DataOutputStream(socket.getOutputStream()))
+            }
         }
 
         baseRequest.isHandled = true

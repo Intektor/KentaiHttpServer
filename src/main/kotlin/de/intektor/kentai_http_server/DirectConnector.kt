@@ -39,7 +39,7 @@ object DirectConnector {
             registerHandler(IdentificationPacketToServer::class.java, IdentificationPacketToServerHandler())
             registerHandler(CloseConnectionPacketToServer::class.java, CloseConnectionPacketToServerHandler())
             registerHandler(UserPreferencePacketToServer::class.java, UserPreferencePacketToServerHandler())
-            registerHandler(AddUserPreferencePacketToServer::class.java, AddUserPreferencePacketToServerHandler())
+            registerHandler(InterestedUserPacketToServer::class.java, InterestedUserPacketToServerHandler())
             registerHandler(HeartbeatPacketToServer::class.java, HeartbeatPacketToServerHandler())
             registerHandler(TypingPacketToServer::class.java, TypingPacketToServerHandler())
             registerHandler(ViewChatPacketToServer::class.java, ViewChatPacketToServerHandler())
@@ -139,7 +139,7 @@ object DirectConnector {
                     Thread.sleep(10000L)
                     if (System.currentTimeMillis() - 10000L > lastTimeHeartbeat && keepConnection) {
                         clientSocket.close()
-                        val uuid = socketMap[clientSocket]!!
+                        val uuid = socketMap[clientSocket] ?: return@thread
                         unregisterClient(uuid, false)
                     }
                 }
