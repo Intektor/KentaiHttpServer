@@ -33,16 +33,16 @@ class InterestedUserPacketToServerHandler : IPacketHandler<InterestedUserPacketT
             val responseList = mutableListOf<UserChange>()
 
             if (DirectConnector.clientMap.containsKey(userUUID)) {
-                responseList.add(UserChange(userUUID, Status.ONLINE, System.currentTimeMillis()))
+                responseList += UserChange(userUUID, Status.ONLINE, System.currentTimeMillis())
             } else {
                 DatabaseConnection.ds.connection.use { connection ->
-                    connection.prepareStatement("SELECT last_time_online, type_closed, user_uuid FROM kentai.user_status_table WHERE user_uuid = '${userUUID}'").executeQuery().use { query ->
+                    connection.prepareStatement("SELECT last_time_online, type_closed, user_uuid FROM kentai.user_status_table WHERE user_uuid = '$userUUID'").executeQuery().use { query ->
                         while (query.next()) {
                             val lastTimeOnline = query.getLong(1)
                             val typeClosed = LastOnlineType.values()[query.getInt(2)]
                             val userUUID = query.getString(3).toUUID()
 
-                            responseList.add(UserChange(userUUID, if (typeClosed == LastOnlineType.CONNECTION_CLOSED) Status.OFFLINE_CLOSED else Status.OFFLINE_EXCEPTION, lastTimeOnline))
+                            responseList += UserChange(userUUID, if (typeClosed == LastOnlineType.CONNECTION_CLOSED) Status.OFFLINE_CLOSED else Status.OFFLINE_EXCEPTION, lastTimeOnline)
                         }
                     }
                 }

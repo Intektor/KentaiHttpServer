@@ -14,6 +14,6 @@ fun sha256(input: String): String {
 }
 
 fun hasProfilePictureBeenUpdated(userUUID: UUID, lastTimeUpdated: Long): Boolean {
-    val file = File("pp/$userUUID")
-    return file.exists() && file.lastModified() < lastTimeUpdated
+    val file = File("pp/$userUUID.png")
+    return file.exists() && file.lastModified() > lastTimeUpdated
 }

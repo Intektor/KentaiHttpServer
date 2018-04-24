@@ -84,6 +84,9 @@ object DirectConnector {
     fun unregisterClient(userUUID: UUID, properlyClosed: Boolean) {
         val socket = clientMap[userUUID]
         val thread = if (socket != null) threadMap[socket] else null
+
+        thread?.keepConnection = false
+
         clientMap.remove(userUUID)
 
         if (socket != null) {
@@ -94,8 +97,6 @@ object DirectConnector {
                 interestedMap[uuid]?.remove(socket)
             }
         }
-
-        thread?.keepConnection = false
 
         DatabaseConnection.ds.connection.use { connection ->
             connection.prepareStatement("DELETE FROM kentai.user_status_table WHERE user_uuid = ?").use { statement ->
@@ -151,17 +152,18 @@ object DirectConnector {
                     handlePacket(packet, clientSocket)
                 }
             } catch (t: Throwable) {
-                val uuid = socketMap[clientSocket]!!
+                val uuid = socketMap[clientSocket]
 
-                for (socket in interestedMap[uuid]!!) {
-                    try {
-                        sendPacket(UserStatusChangePacketToClient(mutableListOf(UserChange(uuid, Status.OFFLINE_EXCEPTION, System.currentTimeMillis()))),
-                                DataOutputStream(clientSocket.getOutputStream()))
-                    } catch (ignored: Throwable) {
+                if (uuid != null) {
+                    for (socket in interestedMap[uuid] ?: emptyList<Socket>()) {
+                        try {
+                            sendPacket(UserStatusChangePacketToClient(mutableListOf(UserChange(uuid, Status.OFFLINE_EXCEPTION, System.currentTimeMillis()))),
+                                    DataOutputStream(clientSocket.getOutputStream()))
+                        } catch (ignored: Throwable) {
+                        }
                     }
+                    unregisterClient(uuid, false)
                 }
-
-                unregisterClient(socketMap[clientSocket]!!, false)
             }
         }
     }

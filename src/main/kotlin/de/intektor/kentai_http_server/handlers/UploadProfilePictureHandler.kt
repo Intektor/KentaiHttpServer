@@ -62,7 +62,7 @@ class UploadProfilePictureHandler : AbstractHandler() {
             }
 
             File("pp/").mkdirs()
-            File("pp/$userUUID").outputStream().use { output ->
+            File("pp/$userUUID.png").outputStream().use { output ->
                 output.write(picture)
             }
 
