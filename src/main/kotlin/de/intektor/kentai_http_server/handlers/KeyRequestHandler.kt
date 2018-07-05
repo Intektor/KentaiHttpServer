@@ -32,7 +32,7 @@ class KeyRequestHandler : AbstractHandler() {
                 statement1.executeQuery().use { query ->
                     var i = 0
                     while (query.next()) {
-                        keyMap.put(req.requestedUUIDs[i], query.getString("message_key").toKey() as RSAPublicKey)
+                        keyMap[req.requestedUUIDs[i]] = query.getString("message_key").toKey() as RSAPublicKey
                         i++
                     }
                 }

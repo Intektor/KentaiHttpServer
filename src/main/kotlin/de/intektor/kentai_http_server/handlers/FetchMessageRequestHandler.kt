@@ -68,11 +68,6 @@ class FetchMessageRequestHandler : AbstractHandler() {
                             }
                         }
                     }
-                    connection.prepareStatement("DELETE FROM kentai.pending_messages WHERE receiver_uuid = ? AND time_sent <= ?").use { statement ->
-                        statement.setString(1, decryptedUserUUID)
-                        statement.setLong(2, lastTime)
-                        statement.execute()
-                    }
                 }
             }
         }

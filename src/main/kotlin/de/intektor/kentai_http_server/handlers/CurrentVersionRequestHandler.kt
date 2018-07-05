@@ -27,5 +27,4 @@ class CurrentVersionRequestHandler : AbstractHandler() {
 
         baseRequest?.isHandled = true
     }
-
 }

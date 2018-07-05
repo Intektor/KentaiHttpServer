@@ -7,7 +7,6 @@ import de.intektor.kentai_http_common.server_to_client.SendChatMessageResponse
 import de.intektor.kentai_http_common.util.FCMMessageType
 import de.intektor.kentai_http_common.util.decryptRSA
 import de.intektor.kentai_http_common.util.toKey
-import de.intektor.kentai_http_common.util.toUUID
 import de.intektor.kentai_http_server.DatabaseConnection
 import de.intektor.kentai_http_server.KentaiServer
 import okhttp3.MediaType
@@ -15,7 +14,6 @@ import okhttp3.RequestBody
 import org.eclipse.jetty.server.Request
 import org.eclipse.jetty.server.handler.AbstractHandler
 import java.io.StringWriter
-import java.util.*
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse
 
@@ -32,45 +30,49 @@ class SendChatMessageRequestHandler : AbstractHandler() {
         val req = reqGson.fromJson(request.reader, SendChatMessageRequest::class.java)
 
         DatabaseConnection.ds.connection.use { connection ->
+            val senderAuthKey = connection.prepareStatement("SELECT auth_key, username FROM kentai.login_table WHERE user_uuid = ?").use { statement ->
+                statement.setString(1, req.senderUUID.toString())
+                statement.executeQuery().use { query ->
+                    if (!query.next()) {
+                        return
+                    }
+                    query.getString("auth_key").toKey()
+                }
+            }
+
+            if (req.senderUUIDEncrypted.decryptRSA(senderAuthKey) != req.senderUUID.toString()) return
+
             for (message in req.list) {
-                var receiverUUID: UUID
-                connection.prepareStatement("SELECT auth_key, username FROM kentai.login_table WHERE user_uuid = ?").use { statement ->
-                    statement.setString(1, message.senderUUID.toString())
-                    val query = statement.executeQuery()
-                    query.next()
-                    receiverUUID = message.receiverUUIDEncrypted.decryptRSA(query.getString("auth_key").toKey()).toUUID()
+                //Says if this message was sent before and so we don't want to send it again
+                val valid = connection.prepareStatement("SELECT message_uuid FROM kentai.pending_messages WHERE message_uuid = ?").use { statement ->
+                    statement.setString(1, message.message.id)
+                    statement.executeQuery().use { query ->
+                        !query.next()
+                    }
+                }
 
-                    //Says if this message was sent before and so we don't want to send it again
-                    var valid = true
-
-                    connection.prepareStatement("SELECT message_uuid FROM kentai.pending_messages WHERE message_uuid = ?").use { statement ->
-                        statement.setString(1, message.message.id.toString())
-                        val query = statement.executeQuery()
-                        valid = !query.next()
+                if (valid) {
+                    connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector, signature, small_data, sender_uuid, chat_uuid, receiver_uuid) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").use { statement ->
+                        statement.setString(1, message.message.id)
+                        statement.setString(2, message.message.text)
+                        statement.setString(3, message.message.referenceUUID.toString())
+                        statement.setString(4, message.messageRegistryId)
+                        statement.setLong(5, message.message.timeSent)
+                        statement.setString(6, message.message.aesKey)
+                        statement.setString(7, message.message.initVector)
+                        statement.setString(8, message.message.signature)
+                        statement.setBytes(9, if (message.message.isSmallData()) message.message.getAdditionalInfo() else null)
+                        statement.setString(10, req.senderUUID.toString())
+                        statement.setString(11, message.chatUUID)
+                        statement.setString(12, message.receiverUUID.toString())
+                        statement.execute()
                     }
 
-                    if (valid) {
-                        connection.prepareStatement("INSERT INTO kentai.pending_messages (message_uuid, text, reference, registry_id, time_sent, aes_key, init_vector, signature, small_data, sender_uuid, chat_uuid, receiver_uuid) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").use { statement ->
-                            statement.setString(1, message.message.id.toString())
-                            statement.setString(2, message.message.text)
-                            statement.setString(3, message.message.referenceUUID.toString())
-                            statement.setString(4, message.messageRegistryId)
-                            statement.setLong(5, message.message.timeSent)
-                            statement.setString(6, message.message.aesKey)
-                            statement.setString(7, message.message.initVector)
-                            statement.setString(8, message.message.signature)
-                            statement.setBytes(9, if (message.message.isSmallData()) message.message.getAdditionalInfo() else null)
-                            statement.setString(10, message.senderUUID.toString())
-                            statement.setString(11, message.chatUUID.toString())
-                            statement.setString(12, receiverUUID.toString())
-                            statement.execute()
-                        }
+                    val stringWriter = StringWriter()
 
-                        val stringWriter = StringWriter()
-
-                        connection.prepareStatement("SELECT fcm_token FROM kentai.login_table WHERE user_uuid = ?").use { statement ->
-                            statement.setString(1, receiverUUID.toString())
-                            val query = statement.executeQuery()
+                    connection.prepareStatement("SELECT fcm_token FROM kentai.login_table WHERE user_uuid = ?").use { statement ->
+                        statement.setString(1, message.receiverUUID.toString())
+                        statement.executeQuery().use { query ->
                             if (query.next()) {
                                 val fcmToken = query.getString("fcm_token")
 
@@ -89,16 +91,16 @@ class SendChatMessageRequestHandler : AbstractHandler() {
                                 writer.flush()
                             }
                         }
-                        val written = stringWriter.toString()
-                        val body = RequestBody.create(MediaType.parse("application/json"), written)
-                        val request = okhttp3.Request.Builder()
-                                .addHeader("Authorization", "key=AAAAFRPXCfU:APA91bFkjRPKGL_fHEqz0LNCI0PunZyf_Cv1YMKkBu6iN6fNUy4zkLG-p5BU81B8kS9PSnKJ0Y5WM-fq5Kj0nblenkm9JiTOE57MlAqWa57Li8eBNSvmoLgT1eskEDcpT0jFhPnnwTI7")
-                                .url("https://fcm.googleapis.com/fcm/send")
-                                .post(body)
-                                .build()
-                        val response = KentaiServer.httpClient.newCall(request).execute()
-                        response.close()
                     }
+                    val written = stringWriter.toString()
+                    val body = RequestBody.create(MediaType.parse("application/json"), written)
+                    val request = okhttp3.Request.Builder()
+                            .addHeader("Authorization", "key=AAAAFRPXCfU:APA91bFkjRPKGL_fHEqz0LNCI0PunZyf_Cv1YMKkBu6iN6fNUy4zkLG-p5BU81B8kS9PSnKJ0Y5WM-fq5Kj0nblenkm9JiTOE57MlAqWa57Li8eBNSvmoLgT1eskEDcpT0jFhPnnwTI7")
+                            .url("https://fcm.googleapis.com/fcm/send")
+                            .post(body)
+                            .build()
+                    val response = KentaiServer.httpClient.newCall(request).execute()
+                    response.close()
                 }
             }
         }

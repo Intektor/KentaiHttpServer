@@ -13,6 +13,7 @@ import java.net.ServerSocket
 import java.net.Socket
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.collections.HashSet
 import kotlin.concurrent.thread
 
 /**
@@ -52,14 +53,18 @@ object DirectConnector {
             serverSocket.soTimeout = 0
 
             while (serverSocket.isBound) {
-                val clientSocket = serverSocket.accept()
+                try {
+                    val clientSocket = serverSocket.accept()
 
-                val dataIn = DataInputStream(clientSocket.getInputStream())
+                    val dataIn = DataInputStream(clientSocket.getInputStream())
 
-                val thread = ConnectionThread(clientSocket, dataIn)
-                thread.start()
+                    val thread = ConnectionThread(clientSocket, dataIn)
+                    thread.start()
 
-                threadMap[clientSocket] = thread
+                    threadMap[clientSocket] = thread
+                } catch (t: Throwable) {
+
+                }
             }
         }
     }
@@ -175,7 +180,7 @@ object DirectConnector {
         val users = chatToUserMap[chatUUID]!!
 
         val viewPacket = UserViewChatPacketToClient(userUUID, chatUUID, view)
-        for (user in users) {
+        for (user in HashSet(users)) {
             val socket = clientMap[user] ?: continue
             try {
                 sendPacket(viewPacket, DataOutputStream(socket.getOutputStream()))

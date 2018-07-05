@@ -10,7 +10,8 @@ import java.util.logging.Level
  */
 object DatabaseConnection {
 
-    @Volatile lateinit var ds: HikariDataSource
+    @Volatile
+    lateinit var ds: HikariDataSource
 
     fun buildConnection(username: String, password: String) {
         val config = HikariConfig()
@@ -18,6 +19,8 @@ object DatabaseConnection {
         config.connectionTimeout = 60000
         config.validationTimeout = 3000
         config.maxLifetime = 60000
+        config.addDataSourceProperty("tcpKeepAlive", true)
+        config.addDataSourceProperty("autoReconnect", true)
         config.jdbcUrl = "jdbc:mysql://localhost/kentai?user=$username&password=$password&useSSL=false"
         ds = HikariDataSource(config)
         try {
@@ -42,7 +45,7 @@ object DatabaseConnection {
                         "time_sent BIGINT, " +
                         "signature VARCHAR(344), " +
                         "small_data VARBINARY(2048), " +
-                        "chat_uuid VARCHAR(40) NOT NULL, " +
+                        "chat_uuid VARCHAR(344) NOT NULL, " +
                         "sender_uuid VARCHAR(40) NOT NULL, " +
                         "receiver_uuid VARCHAR(40) NOT NULL, " +
                         "PRIMARY KEY(message_uuid));").execute()
