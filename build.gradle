@@ -28,7 +28,7 @@ repositories {
 
 dependencies {
     compile "org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlin_version"
-    compile group: 'mysql', name: 'mysql-connector-java', version: '5.1.39'
+    compile group: 'mysql', name: 'mysql-connector-java', version: '8.0.13'
     compile group: 'com.zaxxer', name: 'HikariCP', version: '3.1.0'
     compile group: 'com.google.guava', name: 'guava', version: '19.0'
     compile "de.intektor:mercury-common:1.0.0"

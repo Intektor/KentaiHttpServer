@@ -21,7 +21,7 @@ object DatabaseConnection {
         config.maxLifetime = 60000
         config.addDataSourceProperty("tcpKeepAlive", true)
         config.addDataSourceProperty("autoReconnect", true)
-        config.jdbcUrl = "jdbc:mysql://localhost/mercury?user=$username&password=$password&useSSL=false"
+        config.jdbcUrl = "jdbc:mysql://localhost/mercury?user=$username&password=$password&useSSL=false&serverTimezone=UTC"
         ds = HikariDataSource(config)
         try {
             ds.connection.use { connection ->
